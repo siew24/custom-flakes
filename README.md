@@ -4,8 +4,8 @@ My own dev shells and packages, in one flake registered as `custom`.
 
     nix develop custom#aria2
 
-Each shell is one file in `shells/`, wired up in `flake.nix`. Everything here
-targets `x86_64-linux`.
+Shells are one file each in `shells/` (aria2 is a builder in `lib/`), wired up
+in `flake.nix`. Everything here targets `x86_64-linux`.
 
 Registry entry (per user, in `~/.config/nix/registry.json`):
 
@@ -17,38 +17,54 @@ Or skip the registry and use the full reference:
 ## aria2
 
 The BitTorrent and DHT port (51413, TCP and UDP) is open in the NixOS firewall
-only while the shell is open.
+only while `aria2c` runs. The command opens the port itself: it shows one
+polkit prompt, waits for the guard to confirm, then becomes aria2c. If you
+cancel the prompt, it exits instead of pretending the port is open.
+
+Three ways to get it. A dev shell with `aria2c` on PATH, or just the command:
 
     nix develop custom#aria2
-    aria2c file.torrent
-    exit                      # closes the port
+    nix run custom#aria2c -- file.torrent
 
-One command also works: `nix develop custom#aria2 -c aria2c file.torrent`. The
-port closes when aria2c ends.
+Or install it with a module. Home Manager:
 
-Entering the shell shows one polkit prompt. If you cancel it, the shell exits
-instead of pretending the port is open.
+    imports = [ custom.homeManagerModules.default ];
+    custom.aria2 = {
+      enable = true;
+      downloadDir = "/mnt/data/Downloads"; # optional
+    };
 
-`aria2c` in the shell is a wrapper. It sets the listen ports, `--seed-time=0`
-and `--file-allocation=falloc`, and downloads to `$ARIA2_BT_DIR`, falling back
-to `$XDG_DOWNLOAD_DIR` and then `~/Downloads`. Extra flags win, so a later `-d`
-overrides the folder.
+NixOS (system-wide; asserts the iptables firewall is on):
 
-How it works: the shell hook starts a root guard through pkexec. The guard
-inserts four iptables rules (TCP and UDP, IPv4 and IPv6) into `nixos-fw`,
-prints `ready`, then polls the shell's PID and deletes the rules when it
-disappears. That covers `exit`, Ctrl-D, closing the terminal and SIGKILL.
-Opening and closing are logged: `journalctl -t aria2-fw-guard`.
+    imports = [ custom.nixosModules.default ];
+    custom.aria2.enable = true;
+
+Options, the same in both modules:
+- `enable`: install the `aria2c` command.
+- `downloadDir`: baked into the command. When null it is resolved when
+  aria2c runs: `$XDG_DOWNLOAD_DIR`, then `~/Downloads`.
+- `port`: defaults to 51413.
+
+`aria2c` is a wrapper. It sets the listen ports, `--seed-time=0` and
+`--file-allocation=falloc`, and downloads to the folder above. Extra flags win,
+so a later `-d` overrides the folder.
+
+How it works: `aria2c` starts a root guard through pkexec, passing its own PID.
+The guard inserts four iptables rules (TCP and UDP, IPv4 and IPv6) into
+`nixos-fw`, prints `ready`, then polls that PID and deletes the rules when it
+disappears. `aria2c` then `exec`s the real aria2c, so the PID is the same and
+the port closes when it exits, including on SIGKILL. Opening and closing are
+logged: `journalctl -t aria2-fw-guard`.
 
 Limits:
 - NixOS with the iptables firewall only. It calls `/run/wrappers/bin/pkexec`
   and `/run/current-system/sw/bin/iptables`.
-- A rebuild that restarts `firewall.service` drops the rules mid-session.
-  Leave and re-enter the shell.
-- Two shells at once each add their own rules and each removes only its own,
+- A rebuild that restarts `firewall.service` drops the rules mid-run. Stop
+  aria2c and start it again.
+- Two runs at once each add their own rules and each removes only its own,
   but both listen on the same port, so only one aria2 can bind it.
 - pkexec refuses to run when `$SHELL` is not in `/etc/shells`, and `nix
-  develop` sets it to a store bash. The hook overrides it for that one call.
+  develop` sets it to a store bash. The command overrides it for that one call.
 
 ## csharp
 
@@ -70,11 +86,11 @@ There is no desktop entry, so launch it from a terminal.
 ## hydralauncher
 
 Hydra Launcher pinned ahead of nixpkgs release-26.05, which is stuck on 3.9.5.
-To use it in place of the nixpkgs one, take this flake as an input and overlay
-it:
+To use it in place of the nixpkgs one, take this flake as an input and add its
+overlay, which builds it with your `pkgs`:
 
     nixpkgs.overlays = [
-      (final: prev: { hydralauncher = custom.packages.${prev.system}.hydralauncher; })
+      custom.overlays.default
     ];
 
 To bump it, change `version` and `hash` in `packages/hydralauncher.nix`. Get the
