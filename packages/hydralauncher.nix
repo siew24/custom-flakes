@@ -18,7 +18,12 @@ appimageTools.wrapType2 {
   inherit pname src version;
 
   # Hydra's bundled umu-run is a python script; it looks for /usr/bin/python3.
-  extraPkgs = pkgs: [ pkgs.python3 ];
+  # Hydra only offers GameMode when `ldconfig -p` lists libgamemode.so and
+  # libgamemodeauto.so, and the host's libraries never reach the env's cache.
+  extraPkgs = pkgs: [
+    pkgs.python3
+    pkgs.gamemode
+  ];
 
   # Hydra forces PROTON_LOG=1, and Proton's default trace channels filled the
   # root disk (27.7 GB in one session). Proton keeps a WINEDEBUG that is
