@@ -24,16 +24,19 @@
       homeManagerModules.default = ./modules/home-manager.nix;
       nixosModules.default = ./modules/nixos.nix;
 
-      # Newer hydralauncher than release-26.05 has, built with the consumer's pkgs.
+      # Newer hydralauncher and t3code than release-26.05 has, built with the
+      # consumer's pkgs.
       overlays.default = final: prev: {
         hydralauncher = final.callPackage ./packages/hydralauncher.nix { };
+        t3code = final.callPackage ./packages/t3code.nix { };
       };
 
       packages.${system} = {
         aria2-fw-guard = aria2.guard;
         inherit (aria2) aria2c;
-        # Newer than the release-26.05 one; the overlay above is the way to use it.
+        # Newer than the release-26.05 ones; the overlay above is the way to use them.
         hydralauncher = pkgs.callPackage ./packages/hydralauncher.nix { };
+        t3code = pkgs.callPackage ./packages/t3code.nix { };
       };
     };
 }
