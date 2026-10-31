@@ -2,6 +2,8 @@
   lib,
   fetchurl,
   appimageTools,
+  runCommand,
+  nodejs,
   nix-update-script,
 }:
 let
@@ -13,9 +15,38 @@ let
   };
 
   appimageContents = appimageTools.extract { inherit pname src version; };
+
+  # Linked environments refuse plain http except to loopback and Tailscale.
+  # Also accept a 100.64.0.0/10 address that the local NetBird daemon, while
+  # connected, lists as this machine or a connected peer. Any other address in
+  # that range (WARP, CGNAT) is still refused. This is the check proposed in
+  # pingdotgg/t3code#26840, modelled on #26475's Tailscale one.
+  #
+  # It goes inline in peerOrigin's condition, where `parsed` is the peer URL.
+  # The bundle is ESM, hence getBuiltinModule rather than require.
+  netbirdPeerCheck = ''
+    !(isSharedAddressSpaceHost(parsed.hostname) && (() => {
+    	try {
+    		const status = JSON.parse(process.getBuiltinModule("node:child_process").execFileSync("netbird", ["status", "--json"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }));
+    		const address = (cidr) => String(cidr ?? "").split("/")[0];
+    		return status.management?.connected === true && (address(status.netbirdIp) === parsed.hostname || (status.peers?.details ?? []).some((peer) => peer.status === "Connected" && address(peer.netbirdIp) === parsed.hostname));
+    	} catch {
+    		return false;
+    	}
+    })())'';
+
+  patchedContents = runCommand "${pname}-${version}-patched" { nativeBuildInputs = [ nodejs ]; } ''
+    cp -a ${appimageContents} $out
+    chmod -R u+w $out
+    node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
+      apps/server/dist/binCli-1k0PQRR7.mjs \
+      '!isTailnetHost(parsed.hostname)) return fail$1(new PeerLinkError' \
+      '!isTailnetHost(parsed.hostname) && ${netbirdPeerCheck}) return fail$1(new PeerLinkError'
+  '';
 in
-appimageTools.wrapType2 {
-  inherit pname src version;
+appimageTools.wrapAppImage {
+  inherit pname version;
+  src = patchedContents;
 
   # Chromium's ICU can't work out the zone from a /nix/store /etc/localtime, so
   # Intl reports undefined and Electron apps can open to a blank window.
@@ -39,7 +70,13 @@ appimageTools.wrapType2 {
       --replace-fail 'StartupWMClass=t3code' 'StartupWMClass=com.t3tools.T3Code'
   '';
 
-  passthru.updateScript = nix-update-script { };
+  passthru = {
+    # nix-update reads the AppImage from src, and the t3 CLI shim runs the
+    # server from the patched contents.
+    inherit src;
+    contents = patchedContents;
+    updateScript = nix-update-script { };
+  };
 
   meta = {
     description = "Desktop app for coding agents";
