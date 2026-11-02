@@ -8,10 +8,10 @@
 }:
 let
   pname = "t3code";
-  version = "0.1.5";
+  version = "0.1.6";
   src = fetchurl {
     url = "https://github.com/pingdotgg/t3code/releases/download/v${version}/T3-Code-${version}-x86_64.AppImage";
-    hash = "sha256-kz/53ExlCnWqQIfJjyrmxlQMIz8OL+sy6/+VCwm+hJ0=";
+    hash = "sha256-CeJQcgjHeTCbOWvoRq6h2UUUS9eAYGiZwvSByW3fNNA=";
   };
 
   appimageContents = appimageTools.extract { inherit pname src version; };
@@ -39,7 +39,7 @@ let
     cp -a ${appimageContents} $out
     chmod -R u+w $out
     node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
-      apps/server/dist/binCli-1k0PQRR7.mjs \
+      apps/server/dist/binCli-C12fvdZY.mjs \
       '!isTailnetHost(parsed.hostname)) return fail$1(new PeerLinkError' \
       '!isTailnetHost(parsed.hostname) && ${netbirdPeerCheck}) return fail$1(new PeerLinkError'
   '';
