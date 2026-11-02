@@ -5,6 +5,10 @@
   runCommand,
   nodejs,
   nix-update-script,
+  # Shell run inside the sandbox after its own profile, which has already put
+  # /run/wrappers/bin and /usr/bin first on PATH. A PATH change made before
+  # launch ends up behind those, so put one here instead.
+  extraProfile ? "",
 }:
 let
   pname = "t3code";
@@ -55,7 +59,8 @@ appimageTools.wrapAppImage {
       _tz=$(readlink -f /etc/localtime 2>/dev/null | sed -n 's#.*/zoneinfo/##p')
       [ -n "$_tz" ] && export TZ="$_tz"
     fi
-  '';
+  ''
+  + extraProfile;
 
   extraInstallCommands = ''
     mkdir -p $out/share
