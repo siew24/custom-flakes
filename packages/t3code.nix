@@ -9,6 +9,10 @@
   # /run/wrappers/bin and /usr/bin first on PATH. A PATH change made before
   # launch ends up behind those, so put one here instead.
   extraProfile ? "",
+  # Show the Secrets settings page and the secret picker on provider env vars.
+  # Upstream compiles T3CODE_FEATURE_SECRETS into the web client and ships it
+  # empty, so both stay hidden even though the server resolves secrets.
+  enableSecretProviders ? false,
 }:
 let
   pname = "t3code";
@@ -39,14 +43,20 @@ let
     	}
     })())'';
 
-  patchedContents = runCommand "${pname}-${version}-patched" { nativeBuildInputs = [ nodejs ]; } ''
+  patchedContents = runCommand "${pname}-${version}-patched" { nativeBuildInputs = [ nodejs ]; } (''
     cp -a ${appimageContents} $out
     chmod -R u+w $out
     node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
       apps/server/dist/binCli-C12fvdZY.mjs \
       '!isTailnetHost(parsed.hostname)) return fail$1(new PeerLinkError' \
       '!isTailnetHost(parsed.hostname) && ${netbirdPeerCheck}) return fail$1(new PeerLinkError'
-  '';
+  ''
+  + lib.optionalString enableSecretProviders ''
+    node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
+      apps/server/dist/client/assets/utils-yaDPh6e6.js \
+      '=[`1`,`true`].includes(``),' \
+      '=[`1`,`true`].includes(`1`),'
+  '');
 in
 appimageTools.wrapAppImage {
   inherit pname version;
