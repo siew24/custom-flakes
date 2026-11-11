@@ -16,10 +16,10 @@
 }:
 let
   pname = "t3code";
-  version = "0.1.6";
+  version = "0.1.8";
   src = fetchurl {
     url = "https://github.com/pingdotgg/t3code/releases/download/v${version}/T3-Code-${version}-x86_64.AppImage";
-    hash = "sha256-CeJQcgjHeTCbOWvoRq6h2UUUS9eAYGiZwvSByW3fNNA=";
+    hash = "sha256-4Rdpi+TMWeXsFBbFHf1EKlPvoxQZd7wgy9DYH9P9WCQ=";
   };
 
   appimageContents = appimageTools.extract { inherit pname src version; };
@@ -47,13 +47,13 @@ let
     cp -a ${appimageContents} $out
     chmod -R u+w $out
     node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
-      apps/server/dist/binCli-C12fvdZY.mjs \
-      '!isTailnetHost(parsed.hostname)) return fail$1(new PeerLinkError' \
-      '!isTailnetHost(parsed.hostname) && ${netbirdPeerCheck}) return fail$1(new PeerLinkError'
+      apps/server/dist/relayTracing-BOUIywe1.mjs \
+      '!isTailnetHost(parsed.hostname)) return fail(new PeerLinkError' \
+      '!isTailnetHost(parsed.hostname) && ${netbirdPeerCheck}) return fail(new PeerLinkError'
   ''
   + lib.optionalString enableSecretProviders ''
     node ${./t3code-asar-replace.mjs} $out/resources/app.asar \
-      apps/server/dist/client/assets/utils-yaDPh6e6.js \
+      apps/server/dist/client/assets/utils-CE33Pid-.js \
       '=[`1`,`true`].includes(``),' \
       '=[`1`,`true`].includes(`1`),'
   '');
